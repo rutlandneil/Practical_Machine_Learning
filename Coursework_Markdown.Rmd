@@ -103,7 +103,7 @@ dtconfm <- confusionMatrix(validation$classe, dtPredict)
 print(dtconfm)
 ```
 
-As you can see from the confusion matrix that this generates the accuracy of this method is only 43.6% percent which is not particulalry good. Whilst it might be easy to understand the choices that are made at each branch it does not sufficiently breakdown the data to provide accurate predictions suggesting that there may be more complex relationships between the variables that need consideration for an accurate prediction.
+As you can see from the confusion matrix that this generates the accuracy of this method is only 43.6%, with an estimated out of sample error rate of 57.4% which is not particulalry good. Whilst it might be easy to understand the choices that are made at each branch it does not sufficiently breakdown the data to provide accurate predictions suggesting that there may be more complex relationships between the variables that need consideration for an accurate prediction.
 
 The tree generated from this can be seen in the Appendix, Figure 1
 
@@ -124,7 +124,7 @@ rfconfm <- confusionMatrix(validation$classe, rfPredict)
 print(rfconfm) 
 ```
 
-You can see from the confusion matrix that this method is significantly more accurate than the decision tree with an accuracy of 99.1%
+You can see from the confusion matrix that this method is significantly more accurate than the decision tree with an accuracy of 99.1%, thus providing an estimated out of sample error of 0.9%
 
 We will therefore apply the random forests model fit to the test data to generate our predictions
 
