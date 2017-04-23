@@ -1,0 +1,147 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Neil Rutland"
+date: "23 April 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Executive Summary
+
+This project uses data captured from fitness devices in order to predict the way in which a recorded exercise was performed.
+
+The goal of the report is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants who were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har> (see the section on the Weight Lifting Exercise Dataset).
+
+The training data for this project are available here:
+      <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+The test data are available here:
+      <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+##Exploratory Analysis
+The first step of the analysis is to load the training and test data files and perform some exploratory analysis on the data.
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+library(data.table)
+library(caret)
+library(rpart)
+library(rattle)
+library(rpart.plot)
+
+#import training data
+trainingdir<-"C:/Users/The Rutlands/Google Drive/Data Scientist Specialisation/Practical Machine Learning/pml-training.csv"
+training<-read.csv(trainingdir, na.strings=c("N/A","#Div/0!",""), stringsAsFactors = TRUE)
+
+##import testing data
+testingdir<-"C:/Users/The Rutlands/Google Drive/Data Scientist Specialisation/Practical Machine Learning/pml-testing.csv"
+testing<-read.csv(testingdir, na.strings=c("N/A","#Div/0!",""),stringsAsFactors = TRUE)
+
+dim(training)
+dim(testing)
+```
+
+We see that the data sets are made up of 160 variables. As the variables are to be used for prediction there are some pre processing tasks that can be performed to make sure that the data we use provides good information for the model.
+
+We firstly look at columns that have a high percentage of NA values (i.e. missing data). It is difficult to impute data for columns where this much data is missing as there is little other information from which to predict an accurate replacement. Therefore we will remove columns with more than 95% missing values. In all these cases the same transformation must be performed on both the training and testing data.
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+NAs<-sapply(training, function(x) mean(is.na(x)))> 0.95
+training<-training[,NAs==FALSE]
+testing<-testing[,NAs==FALSE]
+```
+
+Next we look into variables that have very little variance. These variables will add little to the model as the values are broadly the same across most records, therefore these records are also remove dfrom the data set
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+nzv<-nearZeroVar(training)
+nzv
+nzvlist<-nearZeroVar(training, saveMetrics = TRUE)
+
+training<-training[,-nzv]
+testing<-testing[,-nzv]
+```
+
+Finally we scan the column names for the areas of the body we are interested in and remove any columns (baring the outcome) that don't match these key words. This should get rid of any identifier columns that don't provide useful information about the activities performed
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+locs<-c("belt", "arm", "dumbell","classe")
+columns<-grep(paste(locs, collapse="|"), x=colnames(training), ignore.case = TRUE)
+
+training<-training[,columns]
+testing<-testing[,columns]
+```
+
+##Creating Models
+
+Now that the data set is tidy we can begin the process of model creation. There are many approaches that can be used but the two chosen for investigation are Decision Trees for its interpretability and speed and Random Forests for their accuracy
+
+First we must split the training data into training and validation sets so that we can check the out of sample error. We also set the train control paramters for use in the model generation later to perform 3 resamples for cross validation
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+train <- createDataPartition(training$classe, p = 0.8, list = FALSE)
+focussed_train <- training[train, ]
+validation<-training[-train, ]
+control <- trainControl(method = "cv", number = 3)
+```
+
+###Decision Trees
+
+The first method is decision trees. These benefit from being easily interpretable as they simply split the data into branches at each step of which we can see what variable(s) cause the outcomes to diverge
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+set.seed(7325)
+ dtFit <- train(classe ~ ., data = focussed_train, method = "rpart",trControl = control)
+
+dtPredict <- predict(dtFit, validation)
+dtconfm <- confusionMatrix(validation$classe, dtPredict)
+```
+
+###Table 1
+```{r, echo=FALSE}
+print(dtconfm)
+```
+
+As you can see from the confusion matrix that this generates the accuracy of this method is only 43.6% percent which is not particulalry good. Whilst it might be easy to understand the choices that are made at each branch it does not sufficiently breakdown the data to provide accurate predictions suggesting that there may be more complex relationships between the variables that need consideration for an accurate prediction.
+
+The tree generated from this can be seen in the Appendix, Figure 1
+
+###Random Forests
+
+The next approach is to use Random Forests. This method is known for its accuracy, though is less interpretable than decision trees. The trade off that is made for accuracy over interpretability is acceptable in this scenario as the accuracy of prediction is the key factor in this experiment.
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+set.seed(6534)
+rfFit <- train(classe ~ ., data = focussed_train, method = "rf",trControl = control)
+
+rfPredict <- predict(rfFit, validation)
+rfconfm <- confusionMatrix(validation$classe, rfPredict)
+```
+
+####Table 2
+```{r, echo=FALSE}
+print(rfconfm) 
+```
+
+You can see from the confusion matrix that this method is significantly more accurate than the decision tree with an accuracy of 99.1%
+
+We will therefore apply the random forests model fit to the test data to generate our predictions
+
+```{r, warnings=FALSE, error=FALSE, message=FALSE}
+predict(rfFit, newdata = testing)
+```
+
+##Conclusion
+
+After using two contrasting methods the one chosen for our predictions is the Random Forests method. This showed an accuracy of 99.1% some 43% higher than the Decision Trees method.
+
+
+##Appendix
+
+##Figure 1
+```{r, echo=FALSE}
+fancyRpartPlot(dtFit$finalModel)
+```
+
+
